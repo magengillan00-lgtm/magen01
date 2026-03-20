@@ -200,6 +200,7 @@ object PreferenceKeys {
 
     // Behavior
     const val ADAPTIVE_BRIGHTNESS = "adaptive_brightness"
+    const val CHANGE_ON_UNLOCK = "change_on_unlock"
 
     // First launch
     const val FIRST_LAUNCH = "first_launch"

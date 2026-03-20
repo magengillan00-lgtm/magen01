@@ -75,6 +75,15 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".service.receiver.UnlockReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.USER_PRESENT" />
+            </intent-filter>
+        </receiver>
+
         <!-- Quick Settings Tile -->
         <service
             android:name=".service.tile.WallpaperTileService"

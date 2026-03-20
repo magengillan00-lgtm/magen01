@@ -24,7 +24,8 @@ data class ScheduleSettings(
     val liveAlbumId: String? = null,
     val liveScalingType: ScalingType = ScalingType.FILL,
     val liveEffects: WallpaperEffects = WallpaperEffects.none(),
-    val adaptiveBrightness: Boolean = false
+    val adaptiveBrightness: Boolean = false,
+    val changeOnUnlock: Boolean = false
 ) {
     /**
      * Validate interval values
@@ -55,7 +56,8 @@ data class ScheduleSettings(
                homeIntervalMinutes != other.homeIntervalMinutes ||
                lockIntervalMinutes != other.lockIntervalMinutes ||
                separateSchedules != other.separateSchedules ||
-               liveIntervalMinutes != other.liveIntervalMinutes
+               liveIntervalMinutes != other.liveIntervalMinutes ||
+               changeOnUnlock != other.changeOnUnlock
     }
 
     /**

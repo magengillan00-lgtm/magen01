@@ -114,6 +114,8 @@
   <string name="visual_effects_note_live_mode">Note: Visual effects (blur, darken, vignette, grayscale) apply to all wallpapers in live mode.</string>
   <string name="adaptive_brightness">Adaptive Brightness</string>
   <string name="adjust_brightness_based_on_mode">Adjust brightness based on dark/light mode</string>
+  <string name="change_on_unlock">Change on Unlock</string>
+  <string name="change_on_unlock_desc">Change the wallpaper every time you unlock your phone</string>
   <string name="randomly_shuffle_the_wallpapers">Randomly shuffle the wallpapers</string>
   <string name="changing_wallpaper">Changing wallpaper…</string>
   <string name="add_wallpapers">Add wallpapers</string>
@@ -152,8 +154,6 @@
   <string name="interactive_effects">Interactive Effects</string>
   <string name="current_wallpapers">Current Wallpapers</string>
 
-  <!-- Tab Titles -->
-
   <!-- Sort Options -->
   <string name="sort_name_asc">Name (A-Z)</string>
   <string name="sort_name_desc">Name (Z-A)</string>
@@ -182,6 +182,7 @@
   <string name="error_failed_to_build_queue">Failed to build wallpaper queue</string>
   <string name="error_no_valid_wallpaper_after_retries">Could not find a valid wallpaper after retries</string>
   <string name="error_failed_to_load_bitmap">Failed to load wallpaper image</string>
+  <string name="album_name_exists_error">An album with this name already exists</string>
 
   <!-- OEM Compatibility Warnings -->
   <string name="parallax_may_not_work">Parallax effect may not work with your OEM or launcher.</string>
@@ -206,6 +207,7 @@
   <!-- Album Labels -->
   <string name="album_suffix"> Album</string>
   <!-- Wallpaper Mode Selection -->
+  <string name="select_live_wallpaper">Select Live Wallpaper</string>
   <string name="choose_wallpaper_mode">Choose Wallpaper Mode</string>
   <string name="change_later_in_settings">You can change this later in settings</string>
   <string name="static_mode">Static Mode</string>
@@ -213,31 +215,24 @@
   <string name="live_wallpaper_mode">Live Wallpaper Mode</string>
   <string name="live_wallpaper_mode_description">Advanced live wallpaper with hardware-accelerated effects and interactive features (double-tap, parallax).</string>
 
-  <!-- Live Wallpaper Selection Dialog -->
-  <string name="select_live_wallpaper">Select Live Wallpaper</string>
-  <string name="select_live_wallpaper_instruction">To use Paperize in Live Wallpaper mode, you need to select it as your live wallpaper from the system settings.</string>
-  <string name="open_wallpaper_picker_instruction">\nTap \'Open Wallpaper Picker\' below to select Paperize from the list of available live wallpapers.</string>
-  <string name="open_wallpaper_picker">Open Wallpaper Picker</string>
+  <!-- Missing Strings for Settings and Home -->
+  <string name="select_live_wallpaper_instruction">Please select the Magen Live Wallpaper in the system settings to enable live features.</string>
+  <string name="open_wallpaper_picker_instruction_newline">Tap below to open the system wallpaper picker.\nSelect Magen Live Wallpaper and tap Set Wallpaper.</string>
+  <string name="open_wallpaper_picker">Open Picker</string>
   <string name="later">Later</string>
-
-  <!-- Settings Mode Switcher -->
   <string name="wallpaper_mode_setting">Wallpaper Mode</string>
   <string name="current_mode">Current Mode</string>
   <string name="mode_static">Static</string>
   <string name="mode_live_wallpaper">Live Wallpaper</string>
   <string name="switch_button">Switch</string>
-  <string name="mode_switch_warning">Switching modes will reset all albums, wallpapers, and settings. This cannot be undone.</string>
-  <string name="switch_mode_dialog_title">Switch to %1$s Mode?</string>
-  <string name="switch_mode_dialog_description">This will reset all albums, wallpapers, and scheduling settings. This action cannot be undone.\n\nYou\'ll need to re-add your albums and configure your wallpaper settings.</string>
-  <string name="switch_mode_button">Switch Mode</string>
-  <string name="open_wallpaper_picker_instruction_newline">\nTap \'Open Wallpaper Picker\' below to select Paperize from the list of available live wallpapers.</string>
-  <string name="loading_placeholder">…</string>
-  <string name="album_name_exists_error">Album with this name already exists</string>
-  <string name="battery_optimization">Battery Optimization</string>
-  <string name="battery_optimization_description">Disable battery optimization to ensure reliable wallpaper changes in the background.</string>
-  <string name="check_status">Check Status</string>
-  <string name="ignoring">Ignoring (Recommended)</string>
-  <string name="optimizing">Optimizing (May delay changes)</string>
+  <string name="mode_switch_warning">Switching modes will reset your current wallpaper settings.</string>
   <string name="reliability">Reliability</string>
-
+  <string name="battery_optimization">Battery Optimization</string>
+  <string name="ignoring">Ignoring</string>
+  <string name="optimizing">Optimizing</string>
+  <string name="check_status">Check Status</string>
+  <string name="battery_optimization_description">To ensure reliable wallpaper changes, please disable battery optimization for Magen Wallpapers.</string>
+  <string name="switch_mode_dialog_title">Switch Wallpaper Mode?</string>
+  <string name="switch_mode_dialog_description">Are you sure you want to switch to %1$s mode? This will change how wallpapers are applied.</string>
+  <string name="switch_mode_button">Switch Mode</string>
 </resources>

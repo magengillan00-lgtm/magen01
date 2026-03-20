@@ -172,7 +172,8 @@ class PreferencesManager @Inject constructor(
                 enableParallax = prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_PARALLAX)] ?: false,
                 parallaxIntensity = prefs[intPreferencesKey(PreferenceKeys.LIVE_PARALLAX_INTENSITY)] ?: Constants.DEFAULT_PARALLAX_INTENSITY
             ),
-            adaptiveBrightness = prefs[booleanPreferencesKey(PreferenceKeys.ADAPTIVE_BRIGHTNESS)] ?: false
+            adaptiveBrightness = prefs[booleanPreferencesKey(PreferenceKeys.ADAPTIVE_BRIGHTNESS)] ?: false,
+            changeOnUnlock = prefs[booleanPreferencesKey(PreferenceKeys.CHANGE_ON_UNLOCK)] ?: false
         )
     }
 
@@ -235,7 +236,8 @@ class PreferencesManager @Inject constructor(
                 enableParallax = prefs[booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_PARALLAX)] ?: false,
                 parallaxIntensity = prefs[intPreferencesKey(PreferenceKeys.LIVE_PARALLAX_INTENSITY)] ?: Constants.DEFAULT_PARALLAX_INTENSITY
             ),
-            adaptiveBrightness = prefs[booleanPreferencesKey(PreferenceKeys.ADAPTIVE_BRIGHTNESS)] ?: false
+            adaptiveBrightness = prefs[booleanPreferencesKey(PreferenceKeys.ADAPTIVE_BRIGHTNESS)] ?: false,
+            changeOnUnlock = prefs[booleanPreferencesKey(PreferenceKeys.CHANGE_ON_UNLOCK)] ?: false
         )
     }
 
@@ -310,6 +312,7 @@ class PreferencesManager @Inject constructor(
 
             // Adaptive brightness
             prefs[booleanPreferencesKey(PreferenceKeys.ADAPTIVE_BRIGHTNESS)] = settings.adaptiveBrightness
+            prefs[booleanPreferencesKey(PreferenceKeys.CHANGE_ON_UNLOCK)] = settings.changeOnUnlock
         }
     }
 
@@ -331,7 +334,6 @@ class PreferencesManager @Inject constructor(
 
     /**
      * Atomically update lock album ID without race conditions
-     * This prevents lost updates when both home and lock albums are selected simultaneously
      */
     suspend fun updateLockAlbumId(albumId: String?) {
         dataStore.edit { prefs ->
@@ -358,69 +360,47 @@ class PreferencesManager @Inject constructor(
 
     /**
      * Atomically clear album selections if they match the given album ID
-     * Used when deleting an album to prevent race conditions
      * Returns true if any selections were cleared
      */
     suspend fun clearAlbumSelectionsIfMatches(albumId: String): Boolean {
-        var wasCleared = false
+        var cleared = false
         dataStore.edit { prefs ->
-            val homeAlbumId = prefs[stringPreferencesKey(PreferenceKeys.HOME_ALBUM_ID)]
-            val lockAlbumId = prefs[stringPreferencesKey(PreferenceKeys.LOCK_ALBUM_ID)]
-            val liveAlbumId = prefs[stringPreferencesKey(PreferenceKeys.LIVE_ALBUM_ID)]
-
-            // Clear home album if it matches
-            if (homeAlbumId == albumId) {
+            if (prefs[stringPreferencesKey(PreferenceKeys.HOME_ALBUM_ID)] == albumId) {
                 prefs.remove(stringPreferencesKey(PreferenceKeys.HOME_ALBUM_ID))
-                wasCleared = true
+                cleared = true
             }
-
-            // Clear lock album if it matches
-            if (lockAlbumId == albumId) {
+            if (prefs[stringPreferencesKey(PreferenceKeys.LOCK_ALBUM_ID)] == albumId) {
                 prefs.remove(stringPreferencesKey(PreferenceKeys.LOCK_ALBUM_ID))
-                wasCleared = true
+                cleared = true
             }
-
-            // Clear live album if it matches
-            if (liveAlbumId == albumId) {
+            if (prefs[stringPreferencesKey(PreferenceKeys.LIVE_ALBUM_ID)] == albumId) {
                 prefs.remove(stringPreferencesKey(PreferenceKeys.LIVE_ALBUM_ID))
-                wasCleared = true
+                cleared = true
             }
         }
-        return wasCleared
+        return cleared
     }
 
     // ============ Atomic AppSettings Operations ============
 
-    /**
-     * Atomically update dark mode setting without race conditions
-     */
     suspend fun updateDarkMode(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[booleanPreferencesKey(PreferenceKeys.DARK_MODE)] = enabled
         }
     }
 
-    /**
-     * Atomically update dynamic theming setting without race conditions
-     */
     suspend fun updateDynamicTheming(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[booleanPreferencesKey(PreferenceKeys.DYNAMIC_THEMING)] = enabled
         }
     }
 
-    /**
-     * Atomically update animate setting without race conditions
-     */
     suspend fun updateAnimate(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[booleanPreferencesKey(PreferenceKeys.ANIMATE)] = enabled
         }
     }
 
-    /**
-     * Atomically update first launch setting without race conditions
-     */
     suspend fun updateFirstLaunch(isFirstLaunch: Boolean) {
         dataStore.edit { prefs ->
             prefs[booleanPreferencesKey(PreferenceKeys.FIRST_LAUNCH)] = isFirstLaunch
@@ -429,59 +409,24 @@ class PreferencesManager @Inject constructor(
 
     // ============ Atomic ScheduleSettings Operations ============
 
-    /**
-     * Atomically update enableChanger setting without race conditions
-     */
     suspend fun updateEnableChanger(enabled: Boolean) {
         dataStore.edit { prefs ->
             prefs[booleanPreferencesKey(PreferenceKeys.ENABLE_CHANGER)] = enabled
         }
     }
 
-    // ============ Individual Preference Operations ============
-
-    suspend fun <T> setValue(key: String, value: T) {
-        dataStore.edit { prefs ->
-            when (value) {
-                is Boolean -> prefs[booleanPreferencesKey(key)] = value
-                is Int -> prefs[intPreferencesKey(key)] = value
-                is Long -> prefs[longPreferencesKey(key)] = value
-                is String -> prefs[stringPreferencesKey(key)] = value
-                else -> throw IllegalArgumentException("Unsupported preference type")
-            }
-        }
-    }
-
-    suspend fun <T> getValue(key: String, defaultValue: T): T {
-        val prefs = dataStore.data.first()
-        @Suppress("UNCHECKED_CAST")
-        return when (defaultValue) {
-            is Boolean -> prefs[booleanPreferencesKey(key)] ?: defaultValue
-            is Int -> prefs[intPreferencesKey(key)] ?: defaultValue
-            is Long -> prefs[longPreferencesKey(key)] ?: defaultValue
-            is String -> prefs[stringPreferencesKey(key)] ?: defaultValue
-            else -> throw IllegalArgumentException("Unsupported preference type")
-        } as T
-    }
-
-    fun <T> getValueFlow(key: String, defaultValue: T): Flow<T> = dataStore.data.map { prefs ->
-        @Suppress("UNCHECKED_CAST")
-        when (defaultValue) {
-            is Boolean -> prefs[booleanPreferencesKey(key)] ?: defaultValue
-            is Int -> prefs[intPreferencesKey(key)] ?: defaultValue
-            is Long -> prefs[longPreferencesKey(key)] ?: defaultValue
-            is String -> prefs[stringPreferencesKey(key)] ?: defaultValue
-            else -> throw IllegalArgumentException("Unsupported preference type")
-        } as T
+    /**
+     * Clear all settings
+     */
+    suspend fun clearAllSettings() {
+        dataStore.edit { it.clear() }
     }
 
     /**
      * Clear schedule settings (reset to defaults)
-     * Used when switching wallpaper modes
      */
     suspend fun clearScheduleSettings() {
         dataStore.edit { prefs ->
-            // Clear scheduling settings
             prefs.remove(booleanPreferencesKey(PreferenceKeys.ENABLE_CHANGER))
             prefs.remove(booleanPreferencesKey(PreferenceKeys.SEPARATE_SCHEDULES))
             prefs.remove(booleanPreferencesKey(PreferenceKeys.SHUFFLE_ENABLED))
@@ -493,8 +438,11 @@ class PreferencesManager @Inject constructor(
             prefs.remove(intPreferencesKey(PreferenceKeys.HOME_INTERVAL_MINUTES))
             prefs.remove(intPreferencesKey(PreferenceKeys.LOCK_INTERVAL_MINUTES))
             prefs.remove(intPreferencesKey(PreferenceKeys.LIVE_INTERVAL_MINUTES))
-
-            // Clear home effects
+            prefs.remove(stringPreferencesKey(PreferenceKeys.HOME_SCALING_TYPE))
+            prefs.remove(stringPreferencesKey(PreferenceKeys.LOCK_SCALING_TYPE))
+            prefs.remove(stringPreferencesKey(PreferenceKeys.LIVE_SCALING_TYPE))
+            
+            // Clear all effects
             prefs.remove(booleanPreferencesKey(PreferenceKeys.HOME_ENABLE_BLUR))
             prefs.remove(intPreferencesKey(PreferenceKeys.HOME_BLUR))
             prefs.remove(booleanPreferencesKey(PreferenceKeys.HOME_ENABLE_DARKEN))
@@ -507,7 +455,6 @@ class PreferencesManager @Inject constructor(
             prefs.remove(booleanPreferencesKey(PreferenceKeys.HOME_ENABLE_PARALLAX))
             prefs.remove(intPreferencesKey(PreferenceKeys.HOME_PARALLAX_INTENSITY))
 
-            // Clear lock effects
             prefs.remove(booleanPreferencesKey(PreferenceKeys.LOCK_ENABLE_BLUR))
             prefs.remove(intPreferencesKey(PreferenceKeys.LOCK_BLUR))
             prefs.remove(booleanPreferencesKey(PreferenceKeys.LOCK_ENABLE_DARKEN))
@@ -520,7 +467,6 @@ class PreferencesManager @Inject constructor(
             prefs.remove(booleanPreferencesKey(PreferenceKeys.LOCK_ENABLE_PARALLAX))
             prefs.remove(intPreferencesKey(PreferenceKeys.LOCK_PARALLAX_INTENSITY))
 
-            // Clear live effects
             prefs.remove(booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_BLUR))
             prefs.remove(intPreferencesKey(PreferenceKeys.LIVE_BLUR))
             prefs.remove(booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_DARKEN))
@@ -534,21 +480,8 @@ class PreferencesManager @Inject constructor(
             prefs.remove(booleanPreferencesKey(PreferenceKeys.LIVE_ENABLE_PARALLAX))
             prefs.remove(intPreferencesKey(PreferenceKeys.LIVE_PARALLAX_INTENSITY))
 
-            // Clear scaling
-            prefs.remove(stringPreferencesKey(PreferenceKeys.HOME_SCALING_TYPE))
-            prefs.remove(stringPreferencesKey(PreferenceKeys.LOCK_SCALING_TYPE))
-            prefs.remove(stringPreferencesKey(PreferenceKeys.LIVE_SCALING_TYPE))
-
-            // Clear current wallpapers
-            prefs.remove(stringPreferencesKey(PreferenceKeys.CURRENT_HOME_WALLPAPER_ID))
-            prefs.remove(stringPreferencesKey(PreferenceKeys.CURRENT_LOCK_WALLPAPER_ID))
-
-            // Clear adaptive brightness
             prefs.remove(booleanPreferencesKey(PreferenceKeys.ADAPTIVE_BRIGHTNESS))
+            prefs.remove(booleanPreferencesKey(PreferenceKeys.CHANGE_ON_UNLOCK))
         }
-    }
-
-    suspend fun clear() {
-        dataStore.edit { it.clear() }
     }
 }

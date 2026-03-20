@@ -10,6 +10,7 @@ import android.util.Log
 import com.anthonyla.paperize.domain.model.WallpaperEffects
 import com.anthonyla.paperize.service.livewallpaper.gl.GLPicture
 import com.anthonyla.paperize.service.livewallpaper.gl.GLUtil
+import com.anthonyla.paperize.core.util.BrightnessCalculator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -282,28 +283,18 @@ class PaperizeWallpaperRenderer(
         GLES20.glViewport(0, 0, surfaceWidth, surfaceHeight)
 
         GLES20.glUseProgram(effectsProgram)
-
-        // Set color effect uniforms - respect enable flags
         GLES20.glUniform1f(uAlphaHandle, alpha)
-        GLES20.glUniform1f(
-            uDarkenFactorHandle,
-            if (currentEffects.enableDarken) currentEffects.darkenPercentage / Constants.PERCENTAGE_DIVISOR else 0f
-        )
-        GLES20.glUniform1f(
-            uVignetteFactorHandle,
-            if (currentEffects.enableVignette) currentEffects.vignettePercentage / Constants.PERCENTAGE_DIVISOR else 0f
-        )
-        GLES20.glUniform1f(
-            uGrayscaleFactorHandle,
-            if (currentEffects.enableGrayscale) currentEffects.grayscalePercentage / Constants.PERCENTAGE_DIVISOR else 0f
-        )
+        GLES20.glUniform1f(uDarkenFactorHandle, if (currentEffects.enableDarken) currentEffects.darkenPercentage / 100.0f else 0.0f)
+        GLES20.glUniform1f(uVignetteFactorHandle, if (currentEffects.enableVignette) currentEffects.vignettePercentage / 100.0f else 0.0f)
+        GLES20.glUniform1f(uGrayscaleFactorHandle, if (currentEffects.enableGrayscale) currentEffects.grayscalePercentage / 100.0f else 0.0f)
         GLES20.glUniform1f(uAdaptiveBrightnessFactorHandle, picture.brightnessFactor)
 
-        // Bind the fully blurred texture as input
+        // Bind vertical blur result as input texture
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, blurTexture2)
         GLES20.glUniform1i(uTextureHandle, 0)
 
+        // Draw full-screen quad for effects pass (Identity matrix)
         drawQuad(aPositionHandle, aTexCoordHandle, uMvpMatrixHandle, identityMatrix)
     }
 
@@ -311,146 +302,89 @@ class PaperizeWallpaperRenderer(
      * Draw picture with color effects only (no blur).
      */
     private fun drawWithColorEffects(picture: GLPicture, alpha: Float) {
-        // Render to screen with effects
         GLES20.glUseProgram(effectsProgram)
-
-        // Set uniforms - respect enable flags for all effects
         GLES20.glUniform1f(uAlphaHandle, alpha)
-        GLES20.glUniform1f(
-            uDarkenFactorHandle,
-            if (currentEffects.enableDarken) currentEffects.darkenPercentage / Constants.PERCENTAGE_DIVISOR else 0f
-        )
-        GLES20.glUniform1f(
-            uVignetteFactorHandle,
-            if (currentEffects.enableVignette) currentEffects.vignettePercentage / Constants.PERCENTAGE_DIVISOR else 0f
-        )
-        GLES20.glUniform1f(
-            uGrayscaleFactorHandle,
-            if (currentEffects.enableGrayscale) currentEffects.grayscalePercentage / Constants.PERCENTAGE_DIVISOR else 0f
-        )
+        GLES20.glUniform1f(uDarkenFactorHandle, if (currentEffects.enableDarken) currentEffects.darkenPercentage / 100.0f else 0.0f)
+        GLES20.glUniform1f(uVignetteFactorHandle, if (currentEffects.enableVignette) currentEffects.vignettePercentage / 100.0f else 0.0f)
+        GLES20.glUniform1f(uGrayscaleFactorHandle, if (currentEffects.enableGrayscale) currentEffects.grayscalePercentage / 100.0f else 0.0f)
         GLES20.glUniform1f(uAdaptiveBrightnessFactorHandle, picture.brightnessFactor)
 
         picture.draw(effectsProgram, aPositionHandle, aTexCoordHandle, mvpMatrix, uMvpMatrixHandle)
     }
 
     /**
-     * Calculate MVP matrix for Center Crop scaling and Parallax.
+     * Draw a full-screen quad using identity matrix.
      */
-    private fun calculateMvpMatrix(picture: GLPicture, matrix: FloatArray) {
-        val viewWidth = surfaceWidth.toFloat()
-        val viewHeight = surfaceHeight.toFloat()
-        val imageWidth = picture.width.toFloat()
-        val imageHeight = picture.height.toFloat()
+    private fun drawQuad(posHandle: Int, texHandle: Int, mvpHandle: Int, matrix: FloatArray) {
+        GLES20.glUniformMatrix4fv(mvpHandle, 1, false, matrix, 0)
 
-        if (viewWidth == 0f || viewHeight == 0f || imageWidth == 0f || imageHeight == 0f) {
-            Matrix.setIdentityM(matrix, 0)
-            return
-        }
+        GLES20.glEnableVertexAttribArray(posHandle)
+        GLES20.glVertexAttribPointer(posHandle, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer)
 
-        // 1. Calculate scale based on ScalingType
-        val scaleX = viewWidth / imageWidth
-        val scaleY = viewHeight / imageHeight
-
-        val (finalScaleX, finalScaleY) = when (currentScalingType) {
-            ScalingType.FILL -> {
-                val scale = kotlin.math.max(scaleX, scaleY)
-                Pair(scale, scale)
-            }
-            ScalingType.FIT -> {
-                val scale = kotlin.math.min(scaleX, scaleY)
-                Pair(scale, scale)
-            }
-            ScalingType.STRETCH -> {
-                Pair(scaleX, scaleY)
-            }
-            ScalingType.NONE -> {
-                Pair(1f, 1f)
-            }
-        }
-
-        var effectiveScaleX = finalScaleX
-        var effectiveScaleY = finalScaleY
-
-        val parallaxEnabled = currentEffects.enableParallax && currentEffects.parallaxIntensity > 0
-        val parallaxIntensity = if (parallaxEnabled) currentEffects.parallaxIntensity / 100f else 0f
-
-        // If parallax is enabled, ensure we have enough width to scroll (overscan).
-        // If image fits perfectly, apply artificial zoom based on intensity.
-        if (parallaxEnabled) {
-            val currentWidth = imageWidth * effectiveScaleX
-            // Target at least 20% overscan at max intensity
-            val minExtraWidth = viewWidth * parallaxIntensity * 0.2f
-            
-            if ((currentWidth - viewWidth) < minExtraWidth) {
-                // Zoom in to create scrollable area
-                val targetWidth = viewWidth + minExtraWidth
-                // Prevent division by zero
-                if (currentWidth > 0) {
-                    val zoomFactor = targetWidth / currentWidth
-                    effectiveScaleX *= zoomFactor
-                    effectiveScaleY *= zoomFactor
-                }
-            }
-        }
-
-        val scaledWidth = imageWidth * effectiveScaleX
-        val scaledHeight = imageHeight * effectiveScaleY
-
-        // 2. Calculate parallax offset
-        // Available scroll range is the difference between scaled image width and screen width
-        val extraWidth = kotlin.math.max(0f, scaledWidth - viewWidth)
-        
-        // Calculate offset based on scroll position (0.0 = left, 1.0 = right)
-        // Center (0.5) is 0 offset
-        // Reverting to: `maxParallaxOffset = extraWidth`.
-        // And relying on the "Zoom" logic to create that width if needed.
-        val maxParallaxOffset = extraWidth
-        val parallaxOffset = maxParallaxOffset * (0.5f - normalOffsetX)
-        
-        // Verbose logging removed to avoid per-frame log spam
-
-        // 3. Construct Matrix
-        // We use an orthographic projection matching the screen dimensions
-        // Left: -width/2, Right: width/2, Bottom: -height/2, Top: height/2
-        // This makes 0,0 the center of the screen
-        Matrix.orthoM(projectionMatrix, 0, -viewWidth / 2f, viewWidth / 2f, -viewHeight / 2f, viewHeight / 2f, -1f, 1f)
-
-        // Set view matrix (camera) - identity is fine for 2D
-        Matrix.setIdentityM(viewMatrix, 0)
-
-        // Combine Projection * View
-        Matrix.multiplyMM(matrix, 0, projectionMatrix, 0, viewMatrix, 0)
-
-        // Apply Model transformations
-        // Translate for parallax
-        Matrix.translateM(matrix, 0, parallaxOffset, 0f, 0f)
-        
-        // Scale to match image size * crop scale
-        // The quad is -1 to 1 (size 2), so we need to scale it to match image dimensions
-        // Actually, we want to map the quad (-1..1) to the image size (-w/2..w/2)
-        Matrix.scaleM(matrix, 0, scaledWidth / 2f, scaledHeight / 2f, 1f)
-    }
-
-    /**
-     * Draw a full-screen quad with current buffers.
-     */
-    private fun drawQuad(aPositionHandle: Int, aTexCoordHandle: Int, uMvpMatrixHandle: Int, mvpMatrix: FloatArray) {
-        GLES20.glEnableVertexAttribArray(aPositionHandle)
-        GLES20.glEnableVertexAttribArray(aTexCoordHandle)
-
-        GLES20.glUniformMatrix4fv(uMvpMatrixHandle, 1, false, mvpMatrix, 0)
-
-        GLES20.glVertexAttribPointer(aPositionHandle, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer)
-        GLES20.glVertexAttribPointer(aTexCoordHandle, 2, GLES20.GL_FLOAT, false, 0, texCoordBuffer)
+        GLES20.glEnableVertexAttribArray(texHandle)
+        GLES20.glVertexAttribPointer(texHandle, 2, GLES20.GL_FLOAT, false, 0, texCoordBuffer)
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
-        GLES20.glDisableVertexAttribArray(aPositionHandle)
-        GLES20.glDisableVertexAttribArray(aTexCoordHandle)
+        GLES20.glDisableVertexAttribArray(posHandle)
+        GLES20.glDisableVertexAttribArray(texHandle)
     }
 
     /**
-     * Compile all shader programs and cache uniform locations.
+     * Calculate MVP matrix for Center Crop + Parallax.
+     */
+    private fun calculateMvpMatrix(picture: GLPicture, result: FloatArray) {
+        val imageWidth = picture.width.toFloat()
+        val imageHeight = picture.height.toFloat()
+        val viewWidth = surfaceWidth.toFloat()
+        val viewHeight = surfaceHeight.toFloat()
+
+        val imageAspect = imageWidth / imageHeight
+        val viewAspect = viewWidth / viewHeight
+
+        var scaleX = 1.0f
+        var scaleY = 1.0f
+        var translateX = 0.0f
+        var translateY = 0.0f
+
+        when (currentScalingType) {
+            ScalingType.FILL -> {
+                if (imageAspect > viewAspect) {
+                    scaleX = imageAspect / viewAspect
+                } else {
+                    scaleY = viewAspect / imageAspect
+                }
+            }
+            ScalingType.FIT -> {
+                if (imageAspect > viewAspect) {
+                    scaleY = viewAspect / imageAspect
+                } else {
+                    scaleX = imageAspect / viewAspect
+                }
+            }
+            ScalingType.STRETCH -> {
+                // Default 1.0 scale
+            }
+            ScalingType.NONE -> {
+                scaleX = imageWidth / viewWidth
+                scaleY = imageHeight / viewHeight
+            }
+        }
+
+        // Apply parallax if enabled
+        if (currentEffects.enableParallax && currentScalingType == ScalingType.FILL && imageAspect > viewAspect) {
+            val maxScroll = scaleX - 1.0f
+            val intensity = currentEffects.parallaxIntensity / 100.0f
+            translateX = (normalOffsetX - 0.5f) * 2.0f * maxScroll * intensity
+        }
+
+        Matrix.setIdentityM(result, 0)
+        Matrix.scaleM(result, 0, scaleX, scaleY, 1.0f)
+        Matrix.translateM(result, 0, translateX, translateY, 0.0f)
+    }
+
+    /**
+     * Compile all required shader programs.
      */
     private fun compileShaders() {
         // Simple program
@@ -458,47 +392,36 @@ class PaperizeWallpaperRenderer(
 
         // Blur programs
         blurHorizontalProgram = GLUtil.createProgram(GLShaders.VERTEX_SHADER, GLShaders.BLUR_HORIZONTAL_FRAGMENT_SHADER)
+        blurHPositionHandle = GLES20.glGetAttribLocation(blurHorizontalProgram, "aPosition")
+        blurHTexCoordHandle = GLES20.glGetAttribLocation(blurHorizontalProgram, "aTexCoord")
+        blurHMvpMatrixHandle = GLES20.glGetUniformLocation(blurHorizontalProgram, "uMvpMatrix")
+        blurHTextureHandle = GLES20.glGetUniformLocation(blurHorizontalProgram, "uTexture")
+        blurHResolutionHandle = GLES20.glGetUniformLocation(blurHorizontalProgram, "uResolution")
+        blurHRadiusHandle = GLES20.glGetUniformLocation(blurHorizontalProgram, "uRadius")
+
         blurVerticalProgram = GLUtil.createProgram(GLShaders.VERTEX_SHADER, GLShaders.BLUR_VERTICAL_FRAGMENT_SHADER)
+        blurVPositionHandle = GLES20.glGetAttribLocation(blurVerticalProgram, "aPosition")
+        blurVTexCoordHandle = GLES20.glGetAttribLocation(blurVerticalProgram, "aTexCoord")
+        blurVMvpMatrixHandle = GLES20.glGetUniformLocation(blurVerticalProgram, "uMvpMatrix")
+        blurVTextureHandle = GLES20.glGetUniformLocation(blurVerticalProgram, "uTexture")
+        blurVResolutionHandle = GLES20.glGetUniformLocation(blurVerticalProgram, "uResolution")
+        blurVRadiusHandle = GLES20.glGetUniformLocation(blurVerticalProgram, "uRadius")
 
         // Effects program
         effectsProgram = GLUtil.createProgram(GLShaders.VERTEX_SHADER, GLShaders.EFFECTS_FRAGMENT_SHADER)
-
-        // Cache uniform/attribute locations for effects program
-        aPositionHandle = GLES20.glGetAttribLocation(effectsProgram, "a_position")
-        aTexCoordHandle = GLES20.glGetAttribLocation(effectsProgram, "a_texCoord")
-        uTextureHandle = GLES20.glGetUniformLocation(effectsProgram, "u_texture")
-        uMvpMatrixHandle = GLES20.glGetUniformLocation(effectsProgram, "u_mvpMatrix")
-        uAlphaHandle = GLES20.glGetUniformLocation(effectsProgram, "u_alpha")
-        uDarkenFactorHandle = GLES20.glGetUniformLocation(effectsProgram, "u_darkenFactor")
-        uVignetteFactorHandle = GLES20.glGetUniformLocation(effectsProgram, "u_vignetteFactor")
-        uGrayscaleFactorHandle = GLES20.glGetUniformLocation(effectsProgram, "u_grayscaleFactor")
-        uAdaptiveBrightnessFactorHandle = GLES20.glGetUniformLocation(effectsProgram, "u_adaptiveBrightnessFactor")
-
-        Log.d(TAG, "Effects uniform locations: alpha=$uAlphaHandle, darken=$uDarkenFactorHandle, " +
-                "vignette=$uVignetteFactorHandle, grayscale=$uGrayscaleFactorHandle, adaptiveBrightness=$uAdaptiveBrightnessFactorHandle")
-
-        // Cache uniform/attribute locations for horizontal blur program
-        blurHPositionHandle = GLES20.glGetAttribLocation(blurHorizontalProgram, "a_position")
-        blurHTexCoordHandle = GLES20.glGetAttribLocation(blurHorizontalProgram, "a_texCoord")
-        blurHTextureHandle = GLES20.glGetUniformLocation(blurHorizontalProgram, "u_texture")
-        blurHMvpMatrixHandle = GLES20.glGetUniformLocation(blurHorizontalProgram, "u_mvpMatrix")
-        blurHResolutionHandle = GLES20.glGetUniformLocation(blurHorizontalProgram, "u_resolution")
-        blurHRadiusHandle = GLES20.glGetUniformLocation(blurHorizontalProgram, "u_blurRadius")
-
-        // Cache uniform/attribute locations for vertical blur program
-        blurVPositionHandle = GLES20.glGetAttribLocation(blurVerticalProgram, "a_position")
-        blurVTexCoordHandle = GLES20.glGetAttribLocation(blurVerticalProgram, "a_texCoord")
-        blurVTextureHandle = GLES20.glGetUniformLocation(blurVerticalProgram, "u_texture")
-        blurVMvpMatrixHandle = GLES20.glGetUniformLocation(blurVerticalProgram, "u_mvpMatrix")
-        blurVResolutionHandle = GLES20.glGetUniformLocation(blurVerticalProgram, "u_resolution")
-        blurVRadiusHandle = GLES20.glGetUniformLocation(blurVerticalProgram, "u_blurRadius")
-
-        Log.d(TAG, "Shaders compiled and uniforms cached")
+        aPositionHandle = GLES20.glGetAttribLocation(effectsProgram, "aPosition")
+        aTexCoordHandle = GLES20.glGetAttribLocation(effectsProgram, "aTexCoord")
+        uTextureHandle = GLES20.glGetUniformLocation(effectsProgram, "uTexture")
+        uMvpMatrixHandle = GLES20.glGetUniformLocation(effectsProgram, "uMvpMatrix")
+        uAlphaHandle = GLES20.glGetUniformLocation(effectsProgram, "uAlpha")
+        uDarkenFactorHandle = GLES20.glGetUniformLocation(effectsProgram, "uDarkenFactor")
+        uVignetteFactorHandle = GLES20.glGetUniformLocation(effectsProgram, "uVignetteFactor")
+        uGrayscaleFactorHandle = GLES20.glGetUniformLocation(effectsProgram, "uGrayscaleFactor")
+        uAdaptiveBrightnessFactorHandle = GLES20.glGetUniformLocation(effectsProgram, "uAdaptiveBrightnessFactor")
     }
 
     /**
-     * Create framebuffers for blur passes.
-     * Two FBOs are needed for proper 3-pass blur + effects pipeline.
+     * Create framebuffers for two-pass blur.
      */
     private fun createBlurFramebuffers(width: Int, height: Int) {
         // Delete old resources
@@ -605,8 +528,9 @@ class PaperizeWallpaperRenderer(
 
                     // Calculate adaptive brightness if enabled
                     val brightnessFactor = if (adaptiveBrightnessEnabled) {
-                        val brightness = com.anthonyla.paperize.core.util.calculateBitmapBrightness(bitmap)
-                        com.anthonyla.paperize.core.util.getAdaptiveBrightnessMultiplier(context, brightness)
+                        val brightness = BrightnessCalculator.calculateBitmapBrightness(bitmap)
+                        val isDarkMode = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+                        BrightnessCalculator.getAdaptiveMultiplier(isDarkMode, brightness)
                     } else {
                         1.0f
                     }

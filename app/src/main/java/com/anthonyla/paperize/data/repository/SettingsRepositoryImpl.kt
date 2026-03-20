@@ -45,7 +45,7 @@ class SettingsRepositoryImpl @Inject constructor(
         preferencesManager.updateScheduleSettings(settings)
 
     override suspend fun clearAllSettings() =
-        preferencesManager.clear()
+        preferencesManager.clearAllSettings()
 
     override suspend fun clearScheduleSettings() =
         preferencesManager.clearScheduleSettings()

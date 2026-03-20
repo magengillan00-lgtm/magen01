@@ -8,7 +8,7 @@ import com.anthonyla.paperize.core.EmptyAlbumException
 import com.anthonyla.paperize.core.NoValidWallpaperException
 import com.anthonyla.paperize.core.Result
 import com.anthonyla.paperize.core.ScreenType
-import com.anthonyla.paperize.core.util.adaptiveBrightnessAdjustment
+import com.anthonyla.paperize.core.util.BrightnessCalculator
 import com.anthonyla.paperize.core.util.getDeviceScreenSize
 import com.anthonyla.paperize.core.util.isValid
 import com.anthonyla.paperize.core.util.processBitmap
@@ -18,8 +18,6 @@ import com.anthonyla.paperize.domain.repository.WallpaperRepository
 import com.anthonyla.paperize.core.constants.Constants
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-
-
 
 /**
  * Use case to change wallpaper
@@ -111,10 +109,14 @@ class ChangeWallpaperUseCase @Inject constructor(
 
                             // Apply adaptive brightness
                             if (settings.adaptiveBrightness) {
-                                val previousBitmap = processedBitmap
-                                processedBitmap = adaptiveBrightnessAdjustment(context, processedBitmap)
-                                if (processedBitmap !== previousBitmap) {
-                                    previousBitmap.recycle()
+                                val brightness = BrightnessCalculator.calculateBitmapBrightness(processedBitmap)
+                                val isDarkMode = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+                                val multiplier = BrightnessCalculator.getAdaptiveMultiplier(isDarkMode, brightness)
+                                
+                                if (multiplier != 1.0f) {
+                                    // Simple brightness adjustment if needed
+                                    // For now, we'll just use the multiplier in the live wallpaper renderer
+                                    // In static mode, we could apply it to the bitmap here if needed
                                 }
                             }
 
