@@ -3,6 +3,8 @@ package com.anthonyla.paperize
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
@@ -13,6 +15,7 @@ import androidx.work.WorkManager
 import com.anthonyla.paperize.core.constants.Constants
 import com.anthonyla.paperize.service.worker.AlbumRefreshWorker
 import com.anthonyla.paperize.core.util.DataResetManager
+import com.anthonyla.paperize.service.receiver.UnlockReceiver
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -40,6 +43,10 @@ class PaperizeApplication : Application(), Configuration.Provider {
 
         // Trigger album refresh on app cold start to validate and update all albums
         refreshAlbumsOnStartup()
+
+        // Register UnlockReceiver dynamically
+        // Dynamic registration is more reliable for USER_PRESENT on many Android versions and OEM skins (like Honor/Huawei)
+        registerUnlockReceiver()
     }
 
     override val workManagerConfiguration: Configuration
@@ -87,5 +94,13 @@ class PaperizeApplication : Application(), Configuration.Provider {
             ExistingWorkPolicy.KEEP,
             refreshWorkRequest
         )
+    }
+
+    /**
+     * Register UnlockReceiver dynamically to listen for screen unlock events
+     */
+    private fun registerUnlockReceiver() {
+        val filter = IntentFilter(Intent.ACTION_USER_PRESENT)
+        registerReceiver(UnlockReceiver(), filter)
     }
 }
