@@ -87,7 +87,7 @@ fun NavigationGraph(
                         navController.navigate(NotificationRoute) {
                             popUpTo<WallpaperModeSelectionRoute> { inclusive = true }
                         }
-                    } else if (!PermissionUtil.hasStoragePermission()) {
+                    } else if (!PermissionUtil.hasStoragePermission(context)) {
                         navController.navigate(StoragePermissionRoute) {
                             popUpTo<WallpaperModeSelectionRoute> { inclusive = true }
                         }
@@ -110,7 +110,7 @@ fun NavigationGraph(
         ) {
             NotificationPermissionScreen(
                 onContinue = {
-                    if (!PermissionUtil.hasStoragePermission()) {
+                    if (!PermissionUtil.hasStoragePermission(context)) {
                         navController.navigate(StoragePermissionRoute) {
                             popUpTo<NotificationRoute> { inclusive = true }
                         }

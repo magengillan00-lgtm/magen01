@@ -38,12 +38,12 @@ fun StoragePermissionScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var permissionGranted by remember { mutableStateOf(PermissionUtil.hasStoragePermission()) }
+    var permissionGranted by remember { mutableStateOf(PermissionUtil.hasStoragePermission(context)) }
     // Check permission status on resume (when user returns from settings)
     DisposableEffect(Unit) {
         val listener = object : DefaultLifecycleObserver {
             override fun onResume(owner: LifecycleOwner) {
-                permissionGranted = PermissionUtil.hasStoragePermission()
+                permissionGranted = PermissionUtil.hasStoragePermission(context)
             }
         }
         val lifecycleOwner = context as? LifecycleOwner
@@ -116,11 +116,19 @@ fun StoragePermissionScreen(
             // Allow button
             Button(
                 onClick = {
-                    if (!PermissionUtil.hasStoragePermission()) {
-                        val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                            data = Uri.parse("package:${context.packageName}")
+                    if (!PermissionUtil.hasStoragePermission(context)) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        } else {
+                            // For Android 10 and below, request READ_EXTERNAL_STORAGE
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
                         }
-                        context.startActivity(intent)
                     } else {
                         onContinue()
                     }
