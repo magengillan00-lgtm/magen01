@@ -3,11 +3,14 @@ import com.anthonyla.paperize.presentation.theme.AppIconSizes
 import com.anthonyla.paperize.presentation.components.OnboardingLayout
 import com.anthonyla.paperize.core.util.PermissionUtil
 
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -39,6 +42,17 @@ fun StoragePermissionScreen(
 ) {
     val context = LocalContext.current
     var permissionGranted by remember { mutableStateOf(PermissionUtil.hasStoragePermission(context)) }
+    
+    // Launcher for Android 10 and below
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        permissionGranted = isGranted
+        if (isGranted) {
+            onContinue()
+        }
+    }
+
     // Check permission status on resume (when user returns from settings)
     DisposableEffect(Unit) {
         val listener = object : DefaultLifecycleObserver {
@@ -118,16 +132,20 @@ fun StoragePermissionScreen(
                 onClick = {
                     if (!PermissionUtil.hasStoragePermission(context)) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                                data = Uri.parse("package:${context.packageName}")
+                            // Android 11+ (API 30+)
+                            try {
+                                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                                context.startActivity(intent)
                             }
-                            context.startActivity(intent)
                         } else {
-                            // For Android 10 and below, request READ_EXTERNAL_STORAGE
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
+                            // Android 10 and below (API 29 and below)
+                            // Request READ_EXTERNAL_STORAGE directly
+                            requestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
                         }
                     } else {
                         onContinue()
