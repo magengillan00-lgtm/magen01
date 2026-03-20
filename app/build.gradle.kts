@@ -29,7 +29,7 @@ android {
 
     defaultConfig {
         applicationId = "com.anthonyla.paperize"
-        minSdk = 31
+        minSdk = 24
         targetSdk = 36
         versionCode = 50
         versionName = "4.0.0"

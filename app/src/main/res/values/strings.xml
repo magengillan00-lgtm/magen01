@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="app_name">Paperize</string>
+  <string name="app_name">Magen Wallpapers</string>
   <string name="home">Home</string>
   <string name="settings_screen">Settings</string>
   <string name="wallpaper">Wallpaper</string>
@@ -83,7 +83,7 @@
   <string name="show_interval_sliders">Show interval sliders</string>
   <string name="interval_text">Time Interval</string>
   <string name="change_blur">Blur Effect</string>
-  <string name="paperize_is_running">Paperize is running</string>
+  <string name="paperize_is_running">Magen Wallpapers is running</string>
   <string name="next_wallpaper_change">Next wallpaper change: %1$s</string>
   <string name="theme">Theme</string>
   <string name="wallpaper_changer">Wallpaper Changer</string>
@@ -109,7 +109,7 @@
   <string name="change_wallpaper_when_screen_turns_off">Change wallpaper when screen turns off</string>
   <string name="parallax_effect">Parallax Effect</string>
   <string name="wallpaper_moves_with_screen_scroll">Wallpaper moves with screen scroll</string>
-  <string name="live_wallpaper_name">Paperize Live Wallpaper</string>
+  <string name="live_wallpaper_name">Magen Live Wallpaper</string>
   <string name="live_wallpaper_description">Dynamic wallpapers with effects and interactive features</string>
   <string name="visual_effects_note_live_mode">Note: Visual effects (blur, darken, vignette, grayscale) apply to all wallpapers in live mode.</string>
   <string name="adaptive_brightness">Adaptive Brightness</string>
@@ -120,12 +120,12 @@
   <string name="select_album">Select album</string>
   <string name="sort">Sort</string>
   <string name="notification_permission_title">Enable Notifications</string>
-  <string name="notification_permission_description">Allow Paperize to send notifications about wallpaper changes and when the app is running in the background. You can change this anytime in settings.</string>
+  <string name="notification_permission_description">Allow Magen Wallpapers to send notifications about wallpaper changes and when the app is running in the background. You can change this anytime in settings.</string>
   <string name="skip">Skip</string>
   <string name="permission_granted">Permission Granted</string>
   <string name="storage_permission_title">Storage Access (Optional)</string>
-  <string name="storage_permission_description">Allow Paperize to access storage to preview your current wallpaper in the app.</string>
-  <string name="storage_permission_optional">This permission is optional. Paperize can still function normally without it, but you won\'t be able to see wallpaper previews.</string>
+  <string name="storage_permission_description">Allow Magen Wallpapers to access storage to preview your current wallpaper in the app.</string>
+  <string name="storage_permission_optional">This permission is optional. Magen Wallpapers can still function normally without it, but you won\'t be able to see wallpaper previews.</string>
   <string name="continue_without_storage">Continue Without Storage Access</string>
 
   <!-- Content Descriptions for Accessibility -->

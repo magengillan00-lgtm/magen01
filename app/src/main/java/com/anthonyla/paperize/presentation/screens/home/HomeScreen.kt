@@ -76,8 +76,6 @@ fun HomeScreen(
         initialTab.intValue = pagerState.currentPage
     }
 
-
-
     Scaffold(
         topBar = {
             HomeTopBar(
@@ -179,17 +177,34 @@ fun HomeScreen(
                                         "com.anthonyla.paperize.service.livewallpaper.PaperizeLiveWallpaperService"
                                     )
                                 )
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
-                            context.startActivity(intent)
+                            if (intent.resolveActivity(context.packageManager) != null) {
+                                context.startActivity(intent)
+                            } else {
+                                throw Exception("ACTION_CHANGE_LIVE_WALLPAPER not supported")
+                            }
                         } catch (e: Exception) {
                             // Fallback: Open general wallpaper settings
                             try {
-                                val fallbackIntent = Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
-                                context.startActivity(fallbackIntent)
+                                val fallbackIntent = Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                if (fallbackIntent.resolveActivity(context.packageManager) != null) {
+                                    context.startActivity(fallbackIntent)
+                                } else {
+                                    throw Exception("ACTION_LIVE_WALLPAPER_CHOOSER not supported")
+                                }
                             } catch (e2: Exception) {
                                 // Last resort: Open wallpaper settings
-                                val settingsIntent = Intent(android.provider.Settings.ACTION_SETTINGS)
-                                context.startActivity(settingsIntent)
+                                try {
+                                    val settingsIntent = Intent(android.provider.Settings.ACTION_SETTINGS).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(settingsIntent)
+                                } catch (e3: Exception) {
+                                    android.util.Log.e("HomeScreen", "Failed to open any wallpaper settings", e3)
+                                }
                             }
                         }
                     }
