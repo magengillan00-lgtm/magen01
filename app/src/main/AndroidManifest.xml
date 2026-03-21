@@ -65,6 +65,13 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- Wallpaper Monitor Service - Foreground service for reliable wallpaper changes on OEM devices -->
+        <service
+            android:name=".service.wallpaper.WallpaperMonitorService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- Broadcast Receivers -->
         <receiver
             android:name=".service.alarm.BootReceiver"
@@ -75,6 +82,17 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Screen On Receiver - For triggering wallpaper change on screen on -->
+        <receiver
+            android:name=".service.receiver.ScreenOnReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.SCREEN_ON" />
+                <action android:name="android.intent.action.USER_PRESENT" />
             </intent-filter>
         </receiver>
 

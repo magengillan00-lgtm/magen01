@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
+import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
@@ -16,6 +18,8 @@ import com.anthonyla.paperize.core.constants.Constants
 import com.anthonyla.paperize.service.worker.AlbumRefreshWorker
 import com.anthonyla.paperize.core.util.DataResetManager
 import com.anthonyla.paperize.service.receiver.UnlockReceiver
+import com.anthonyla.paperize.service.receiver.ScreenOnReceiver
+import com.anthonyla.paperize.service.wallpaper.WallpaperMonitorService
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -31,6 +35,10 @@ class PaperizeApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
+    companion object {
+        private const val TAG = "PaperizeApplication"
+    }
+
     override fun onCreate() {
         super.onCreate()
 
@@ -44,9 +52,11 @@ class PaperizeApplication : Application(), Configuration.Provider {
         // Trigger album refresh on app cold start to validate and update all albums
         refreshAlbumsOnStartup()
 
-        // Register UnlockReceiver dynamically
-        // Dynamic registration is more reliable for USER_PRESENT on many Android versions and OEM skins (like Honor/Huawei)
-        registerUnlockReceiver()
+        // Register receivers dynamically for OEM device compatibility
+        registerReceivers()
+        
+        // Start the wallpaper monitor service for reliable background execution
+        startWallpaperMonitorService()
     }
 
     override val workManagerConfiguration: Configuration
@@ -97,10 +107,57 @@ class PaperizeApplication : Application(), Configuration.Provider {
     }
 
     /**
-     * Register UnlockReceiver dynamically to listen for screen unlock events
+     * Register receivers dynamically to listen for screen events
+     * 
+     * Dynamic registration is more reliable for USER_PRESENT and SCREEN_ON
+     * on many Android versions and OEM skins (like Honor/Huawei)
      */
-    private fun registerUnlockReceiver() {
-        val filter = IntentFilter(Intent.ACTION_USER_PRESENT)
-        registerReceiver(UnlockReceiver(), filter)
+    private fun registerReceivers() {
+        try {
+            // Register UnlockReceiver for device unlock events
+            val unlockFilter = IntentFilter(Intent.ACTION_USER_PRESENT)
+            registerReceiver(UnlockReceiver(), unlockFilter)
+            Log.d(TAG, "UnlockReceiver registered")
+
+            // Register ScreenOnReceiver for screen on events
+            // This is critical for OEM devices that kill background processes
+            val screenOnFilter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(ScreenOnReceiver(), screenOnFilter, RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(ScreenOnReceiver(), screenOnFilter)
+            }
+            Log.d(TAG, "ScreenOnReceiver registered")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error registering receivers", e)
+        }
+    }
+    
+    /**
+     * Start the wallpaper monitor service
+     * 
+     * This service runs as a foreground service and ensures wallpaper changes
+     * happen reliably even when the app is closed or on OEM devices with
+     * aggressive battery optimization.
+     */
+    private fun startWallpaperMonitorService() {
+        try {
+            val intent = Intent(this, WallpaperMonitorService::class.java).apply {
+                action = WallpaperMonitorService.ACTION_START_MONITORING
+            }
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            Log.d(TAG, "WallpaperMonitorService started")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting WallpaperMonitorService", e)
+        }
     }
 }

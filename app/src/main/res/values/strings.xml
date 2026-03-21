@@ -177,6 +177,7 @@
   <string name="notification_channel_description">Wallpaper change notifications</string>
   <string name="no_wallpapers_in_album">No wallpapers in album</string>
   <string name="wallpaper_changer_disabled_empty_album">Wallpaper changer has been disabled because the album is empty.</string>
+  <string name="wallpaper_monitoring_active">Wallpaper monitoring active</string>
 
   <!-- Error Messages -->
   <string name="error_failed_to_build_queue">Failed to build wallpaper queue</string>
