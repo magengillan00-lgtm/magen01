@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import kotlinx.coroutines.flow.first
 import com.anthonyla.paperize.core.ScreenType
 import com.anthonyla.paperize.core.constants.Constants
+import com.anthonyla.paperize.service.alarm.WallpaperAlarmManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,10 +33,14 @@ import javax.inject.Singleton
  * - Respects Doze mode and battery optimization
  * - Built-in constraint support (network, charging, idle)
  * - More reliable across Android versions and OEMs
+ *
+ * Also uses AlarmManager as a fallback for OEM devices like Honor/Huawei
+ * that aggressively kill WorkManager jobs.
  */
 @Singleton
 class WallpaperScheduler @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    private val alarmManager: WallpaperAlarmManager
 ) {
     private val workManager = WorkManager.getInstance(context)
     private val schedulerScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -43,6 +48,8 @@ class WallpaperScheduler @Inject constructor(
 
     companion object {
         private const val TAG = "WallpaperScheduler"
+        // Enable dual scheduling (WorkManager + AlarmManager) for better reliability on OEM devices
+        private const val USE_ALARM_MANAGER_FALLBACK = true
     }
 
     /**
@@ -94,7 +101,13 @@ class WallpaperScheduler @Inject constructor(
             workRequest
         )
 
-        Log.d(TAG, "Scheduled $screenType wallpaper change every $adjustedInterval minutes")
+        // Also schedule with AlarmManager for better reliability on OEM devices (Honor/Huawei)
+        // This provides a fallback if WorkManager is killed by aggressive battery optimization
+        if (USE_ALARM_MANAGER_FALLBACK) {
+            alarmManager.scheduleWallpaperAlarm(screenType, intervalMinutes)
+        }
+
+        Log.d(TAG, "Scheduled $screenType wallpaper change every $adjustedInterval minutes (WorkManager + AlarmManager)")
     }
 
     /**
@@ -203,7 +216,13 @@ class WallpaperScheduler @Inject constructor(
     fun cancelWallpaperChange(screenType: ScreenType) {
         val workName = getWorkName(screenType)
         workManager.cancelUniqueWork(workName)
-        Log.d(TAG, "Cancelled $screenType wallpaper change schedule")
+        
+        // Also cancel alarm
+        if (USE_ALARM_MANAGER_FALLBACK) {
+            alarmManager.cancelWallpaperAlarm(screenType)
+        }
+        
+        Log.d(TAG, "Cancelled $screenType wallpaper change schedule (WorkManager + AlarmManager)")
     }
 
     /**
@@ -215,7 +234,13 @@ class WallpaperScheduler @Inject constructor(
         workManager.cancelUniqueWork(Constants.WORK_NAME_BOTH)
         workManager.cancelUniqueWork(Constants.WORK_NAME_LIVE)
         cancelAlbumRefresh()
-        Log.d(TAG, "Cancelled all wallpaper change schedules")
+        
+        // Also cancel all alarms
+        if (USE_ALARM_MANAGER_FALLBACK) {
+            alarmManager.cancelAllAlarms()
+        }
+        
+        Log.d(TAG, "Cancelled all wallpaper change schedules (WorkManager + AlarmManager)")
     }
 
     /**

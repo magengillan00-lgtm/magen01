@@ -43,6 +43,12 @@
 -keep class com.anthonyla.paperize.service.wallpaper.WallpaperChangeService { *; }
 -keep class com.anthonyla.paperize.service.wallpaper.WallpaperChangeService$* { *; }
 
+# Keep alarm receivers
+-keep class com.anthonyla.paperize.service.alarm.BootReceiver { *; }
+-keep class com.anthonyla.paperize.service.alarm.WallpaperAlarmReceiver { *; }
+-keep class com.anthonyla.paperize.service.alarm.WallpaperAlarmManager { *; }
+-keep class com.anthonyla.paperize.service.receiver.UnlockReceiver { *; }
+
 # Keep enums
 -keep class com.anthonyla.paperize.core.WallpaperSourceType { *; }
 -keep class com.anthonyla.paperize.core.ScreenType { *; }

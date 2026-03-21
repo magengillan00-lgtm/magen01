@@ -16,6 +16,7 @@ import com.anthonyla.paperize.data.repository.WallpaperRepositoryImpl
 import com.anthonyla.paperize.domain.repository.AlbumRepository
 import com.anthonyla.paperize.domain.repository.SettingsRepository
 import com.anthonyla.paperize.domain.repository.WallpaperRepository
+import com.anthonyla.paperize.service.alarm.WallpaperAlarmManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -77,6 +78,14 @@ object AppModule {
     @Singleton
     fun providePreferencesManager(@ApplicationContext context: Context): PreferencesManager =
         PreferencesManager(context)
+
+    /**
+     * Provide WallpaperAlarmManager for OEM device compatibility
+     */
+    @Provides
+    @Singleton
+    fun provideWallpaperAlarmManager(@ApplicationContext context: Context): WallpaperAlarmManager =
+        WallpaperAlarmManager(context)
 
     /**
      * Provide Repositories
